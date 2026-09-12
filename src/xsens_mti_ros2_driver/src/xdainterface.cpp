@@ -161,12 +161,18 @@ void XdaInterface::registerPublishers()
 		registerCallback(new AngularVelocityHRPublisher(m_node));
 	}
 
+	// IMU-only devices (e.g. MTi-610) have no onboard orientation filter, so they fall
+	// outside the isDeviceVruAhrs/isDeviceGnss gate below. The combined sensor_msgs/Imu
+	// is still wanted for those: ImuPublisher publishes accel+gyro with orientation marked
+	// unavailable (covariance[0]=-1), which is exactly the raw input imu_filter_madgwick
+	// fuses into orientation. Register it for all device classes, gated only by pub_imu.
+	if (m_node->get_parameter("pub_imu", should_publish) && should_publish)
+	{
+		registerCallback(new ImuPublisher(m_node, m_device));
+	}
+
 	if(isDeviceVruAhrs || isDeviceGnss)
 	{
-		if (m_node->get_parameter("pub_imu", should_publish) && should_publish)
-		{
-			registerCallback(new ImuPublisher(m_node, m_device));
-		}
 		if (m_node->get_parameter("pub_quaternion", should_publish) && should_publish)
 		{
 			registerCallback(new OrientationPublisher(m_node));
