@@ -22,7 +22,11 @@ find_package(mavros_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
-link_directories(lib/xspublic/xscontroller lib/xspublic/xscommon lib/xspublic/xstypes)
+# The vendor libraries are built from a copy under the binary dir (below), so
+# their objects, archives and the ExternalProject stamps share one lifetime: a
+# reused build tree against a fresh source checkout still links.
+set(XSPUBLIC_BUILD_DIR ${CMAKE_BINARY_DIR}/xspublic/src)
+link_directories(${XSPUBLIC_BUILD_DIR}/xscontroller ${XSPUBLIC_BUILD_DIR}/xscommon ${XSPUBLIC_BUILD_DIR}/xstypes)
 
 # Check ROS distro
 if(DEFINED ENV{ROS_DISTRO})
@@ -58,14 +62,19 @@ ament_export_dependencies(rosidl_default_runtime)
 include(ExternalProject)
 
 # Define the external project which is make the xspublic
+# The vendor Makefile only builds in place. Every build refreshes the copy
+# (timestamps kept, so make stays incremental) and runs make there.
 ExternalProject_Add(
   xspublic
   PREFIX ${CMAKE_BINARY_DIR}/xspublic
-  SOURCE_DIR ${CMAKE_SOURCE_DIR}/lib/xspublic
-  CONFIGURE_COMMAND ""  # No configure step
-  BUILD_COMMAND make
-  BUILD_IN_SOURCE 1  # Build in the source directory
-  INSTALL_COMMAND ""  # No install step
+  SOURCE_DIR ${XSPUBLIC_BUILD_DIR}
+  DOWNLOAD_COMMAND ""
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND cp -a ${CMAKE_CURRENT_SOURCE_DIR}/lib/xspublic/. ${XSPUBLIC_BUILD_DIR}/
+  COMMAND make
+  BUILD_IN_SOURCE 1
+  BUILD_ALWAYS 1
+  INSTALL_COMMAND ""
 )
 
 ## Specify additional locations of header files
